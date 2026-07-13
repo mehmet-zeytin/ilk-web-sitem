@@ -1,25 +1,14 @@
 import { useState, useEffect } from 'react';
 
 const KATEGORILER = [
-  'alles', 'natuur', 'wetenschap', 'ruimte', 'technologie', 
+  'alles', 'natuur', 'wetenschap', 'ruimte', 'technologie',
   'gezondheid', 'geschiedenis', 'reizen', 'kunst', 'sport', 'voeding'
 ];
 
-const ILK_ICERIKLER = [
-  { id: 1, kategori: 'natuur', baslik: 'Regenwouden', ozet: 'Alles wat je moet weten over de longen van onze planeet.', detay: 'Regenwouden produceren een groot deel van de zuurstof op aarde en zijn de thuisbasis van miljoenen diersoorten.', sure: '3 min', begeni: 12, yorumlar: [{ isim: 'Ahmet', metin: 'Heerlijk artikel!' }] },
-  { id: 2, kategori: 'wetenschap', baslik: 'AI en de Toekomst', ozet: 'Analyses over hoe technologie ons leven zal vormgeven.', detay: 'Kunstmatige intelligentie analyseert niet alleen data, maar creëert nu ook kunst en schrijft code.', sure: '2 min', begeni: 24, yorumlar: [] },
-  { id: 3, kategori: 'ruimte', baslik: 'Reis naar Mars', ozet: 'De stappen van de mensheid richting kolonisatie van de rode planeet.', detay: 'Mars is de belangrijkste kandidaat voor de eerste menselijke basis buiten de aarde. De atmosfeer wordt onderzocht.', sure: '1 min', begeni: 8, yorumlar: [] },
-  { id: 4, kategori: 'technologie', baslik: 'Quantum Computers', ozet: 'De volgende stap in supercomputers.', detay: 'Quantummechanica verandert de manier waarop we data verwerken volledig. Dit is de toekomst of tech.', sure: '3 min', begeni: 19, yorumlar: [] },
-  { id: 5, kategori: 'gezondheid', baslik: 'Gezond Slaapritme', ozet: 'Waarom slaap belangrijker is dan je denkt.', detay: 'Een goede nachtrust verbetert je immuunsysteem, focus en algehele mentale gezondheid.', sure: '2 min', begeni: 15, yorumlar: [] },
-  { id: 6, kategori: 'geschiedenis', baslik: 'Het Romeinse Rijk', ozet: 'Hoe een kleine stad een wereldrijk werd.', detay: 'De Romeinen stonden bekend om hun wetten, architectuur en militaire kracht. Hun invloed is vandaag de dag nog steeds zichtbaar.', sure: '4 min', begeni: 31, yorumlar: [] },
-  { id: 7, kategori: 'reizen', baslik: 'Ontdek Kyoto', ozet: 'De culturele hoofdstad van Japan vol tradities.', detay: 'Kyoto staat bekend om zijn prachtige tempels, traditionele houten huizen en adembenemende bamboebossen.', sure: '3 min', begeni: 22, yorumlar: [] },
-  { id: 8, kategori: 'kunst', baslik: 'Het Geheim van Da Vinci', ozet: 'Een blik op de meesterwerken van de Renaissance.', detay: 'Leonardo da Vinci was niet alleen een schilder, maar ook een uitvinder en wetenschapper. Zijn technieken veranderden de kunstwereld.', sure: '2 min', begeni: 17, yorumlar: [] },
-  { id: 9, kategori: 'sport', baslik: 'Marathon Training', ozet: 'Goud waardevolle tips voor beginnende hardlopers.', detay: 'Een marathon lopen vereist niet alleen fysieke kracht, maar ook mentale discipline en een strikt voedingsschema.', sure: '3 min', begeni: 14, yorumlar: [] },
-  { id: 10, kategori: 'voeding', baslik: 'Het Mediterrane Dieet', ozet: 'Waarom dit het gezondste dieet ter wereld is.', detay: 'Dit dieet is rijk aan olijfolie, vis, groenten en volkoren producten. Het vermindert de kans op hart- en vaatziekten.', sure: '2 min', begeni: 26, yorumlar: [] }
-];
+const API_URL = 'http://127.0.0.1:8000';
 
 export default function App() {
-  const [icerikler, setIcerikler] = useState(ILK_ICERIKLER);
+  const [icerikler, setIcerikler] = useState([]);
   const [aktifKategori, setAktifKategori] = useState('alles');
   const [secilenMakale, setSecilenMakale] = useState(null);
   const [aramaMetni, setAramaMetni] = useState('');
@@ -27,7 +16,7 @@ export default function App() {
   const [alleenFavorieten, setAlleenFavorieten] = useState(false);
   const [notificatie, setNotificatie] = useState(null);
 
-  const [rol, setRol] = useState('misafir'); 
+  const [rol, setRol] = useState('misafir');
   const [kullaniciAdi, setKullaniciAdi] = useState('');
   const [aktifModal, setAktifModal] = useState(null);
   const [girisHata, setGirisHata] = useState('');
@@ -43,6 +32,9 @@ export default function App() {
   const [yeniSure, setYeniSure] = useState('2 min');
   const [yeniYorum, setYeniYorum] = useState('');
 
+  const [kullaniciListesi, setKullaniciListesi] = useState([]);
+  const [adminSekme, setAdminSekme] = useState('makaleler'); // 'makaleler' | 'kullanicilar'
+
   const toonNotificatie = (tekst, type = 'succes') => {
     setNotificatie({ tekst, type });
   };
@@ -54,6 +46,40 @@ export default function App() {
     }
   }, [notificatie]);
 
+  // ---------- Makaleleri backend'den çek ----------
+  const makaleleriGetir = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/articles`);
+      const data = await response.json();
+      setIcerikler(data);
+    } catch (error) {
+      console.error('Makaleler alınamadı:', error);
+      toonNotificatie('Artikelen konden niet worden geladen!', 'fout');
+    }
+  };
+
+  useEffect(() => {
+    makaleleriGetir();
+  }, []);
+
+  // ---------- Admin ise kullanıcı listesini çek ----------
+  const kullanicilariGetir = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/users`);
+      const data = await response.json();
+      setKullaniciListesi(data);
+    } catch (error) {
+      console.error('Kullanıcılar alınamadı:', error);
+      toonNotificatie('Gebruikers konden niet worden geladen!', 'fout');
+    }
+  };
+
+  useEffect(() => {
+    if (rol === 'admin') {
+      kullanicilariGetir();
+    }
+  }, [rol]);
+
   const formuTemizle = () => {
     setFormEmail('');
     setFormSifre('');
@@ -61,118 +87,185 @@ export default function App() {
     setGirisHata('');
   };
 
+  // ---------- Giriş ----------
   const handleGirisSubmit = async (e) => {
     e.preventDefault();
     setGirisHata('');
 
     try {
-        const response = await fetch("http://127.0.0.1:8000/api/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: formEmail, password: formSifre }),
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'success') {
-            toonNotificatie("Welkom! 👋", "succes");
-            setKullaniciAdi(data.username || "Gebruiker");
-            setRol(data.username === 'admin' ? 'admin' : 'kullanici');
-            setAktifModal(null);
-            formuTemizle();
-        } else {
-            setGirisHata(data.detail || "Fout bij inloggen");
-        }
-    } catch (error) {
-        console.error("Fetch hatası:", error);
-        setGirisHata("Server niet bereikbaar!");
-    }
-};
-
-  const handleKayitSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: formUsername, 
-          email: formEmail, 
-          password: formSifre,
-          role: aktifModal === 'admin_kayit' ? 'admin' : 'kullanici' 
-        }),
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formEmail, password: formSifre }),
       });
 
       const data = await response.json();
-      if (response.ok) {
-        toonNotificatie("Registratie succesvol! Log nu in.", "succes");
+
+      if (data.status === 'success') {
+        toonNotificatie('Welkom! 👋', 'succes');
+        setKullaniciAdi(data.username || 'Gebruiker');
+        setRol(data.role === 'admin' ? 'admin' : 'kullanici');
+        setAktifModal(null);
+        formuTemizle();
+      } else {
+        setGirisHata(data.detail || 'Fout bij inloggen');
+      }
+    } catch (error) {
+      console.error('Fetch hatası:', error);
+      setGirisHata('Server niet bereikbaar!');
+    }
+  };
+
+  // ---------- Kayıt ----------
+  const handleKayitSubmit = async (e) => {
+    e.preventDefault();
+    if (!formEmail.trim() || !formSifre.trim() || !formUsername.trim()) return;
+
+    const hesapTipi = aktifModal === 'admin_kayit' ? 'admin' : 'kullanici';
+
+    try {
+      const response = await fetch(`${API_URL}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formUsername,
+          email: formEmail,
+          password: formSifre,
+          hesap_tipi: hesapTipi,
+        }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        toonNotificatie('Registratie succesvol! Log nu in. 🎉');
         setAktifModal(aktifModal === 'admin_kayit' ? 'admin' : 'kullanici');
         formuTemizle();
       } else {
-        toonNotificatie(data.detail || "Registratie mislukt", "fout");
+        toonNotificatie(data.detail || 'Registratie mislukt!', 'fout');
       }
     } catch (error) {
-      toonNotificatie("Server niet bereikbaar!", "fout");
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
     }
   };
 
-  const handleMakaleEkle = (e) => {
+  // ---------- Makale ekle (backend'e kaydeder) ----------
+  const handleMakaleEkle = async (e) => {
     e.preventDefault();
     if (!yeniBaslik.trim() || !yeniDetay.trim()) return;
-    const yeniEklenti = {
-      id: Date.now(),
-      kategori: yeniKategori,
-      baslik: yeniBaslik,
-      ozet: yeniOzet || yeniDetay.substring(0, 60) + "...",
-      detay: yeniDetay,
-      sure: yeniSure,
-      begeni: 0,
-      yorumlar: []
-    };
-    setIcerikler([yeniEklenti, ...icerikler]);
-    setYeniBaslik('');
-    setYeniOzet('');
-    setYeniDetay('');
-    toonNotificatie("Artikel succesvol gepubliceerd! 🚀");
-  };
 
-  const makaleSil = (id) => {
-    if (confirm("Weet u zeker dat u dit artikel wilt verwijderen?")) {
-      setIcerikler(icerikler.filter(item => item.id !== id));
-      setSecilenMakale(null);
-      toonNotificatie("Artikel succesvol verwijderd! 🗑️", "fout");
+    try {
+      const response = await fetch(`${API_URL}/api/articles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kategori: yeniKategori,
+          baslik: yeniBaslik,
+          ozet: yeniOzet || yeniDetay.substring(0, 60) + '...',
+          detay: yeniDetay,
+          sure: yeniSure,
+        }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setYeniBaslik('');
+        setYeniOzet('');
+        setYeniDetay('');
+        toonNotificatie('Artikel succesvol gepubliceerd! 🚀');
+        makaleleriGetir();
+      } else {
+        toonNotificatie('Artikel kon niet worden toegevoegd!', 'fout');
+      }
+    } catch (error) {
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
     }
   };
 
-  const handleBegeni = (id, e) => {
+  // ---------- Makale sil (backend'den siler) ----------
+  const makaleSil = async (id) => {
+    if (!confirm('Weet u zeker dat u dit artikel wilt verwijderen?')) return;
+    try {
+      const response = await fetch(`${API_URL}/api/articles/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setSecilenMakale(null);
+        toonNotificatie('Artikel succesvol verwijderd! 🗑️', 'fout');
+        makaleleriGetir();
+      }
+    } catch (error) {
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
+    }
+  };
+
+  // ---------- Beğeni (backend'e yazar) ----------
+  const handleBegeni = async (id, e) => {
     e.stopPropagation();
-    setIcerikler(icerikler.map(item => item.id === id ? { ...item, begeni: item.begeni + 1 } : item));
-    if (secilenMakale && secilenMakale.id === id) {
-      setSecilenMakale(prev => ({ ...prev, begeni: prev.begeni + 1 }));
+    try {
+      const response = await fetch(`${API_URL}/api/articles/${id}/like`, { method: 'POST' });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setIcerikler(prev => prev.map(item => item.id === id ? { ...item, begeni: data.begeni } : item));
+        if (secilenMakale && secilenMakale.id === id) {
+          setSecilenMakale(prev => ({ ...prev, begeni: data.begeni }));
+        }
+        toonNotificatie('Artikel leuk gevonden! ❤️');
+      }
+    } catch (error) {
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
     }
-    toonNotificatie("Artikel leuk gevonden! ❤️");
   };
 
   const toggleFavori = (id, e) => {
     e.stopPropagation();
     if (favoriler.includes(id)) {
       setFavoriler(favoriler.filter(favId => favId !== id));
-      toonNotificatie("Verwijderd uit bladwijzers 📑", "fout");
+      toonNotificatie('Verwijderd uit bladwijzers 📑', 'fout');
     } else {
       setFavoriler([...favoriler, id]);
-      toonNotificatie("Toegevoegd aan bladwijzers! 📑");
+      toonNotificatie('Toegevoegd aan bladwijzers! 📑');
     }
   };
 
-  const handleYorumEkle = (e) => {
+  // ---------- Yorum ekle (backend'e yazar) ----------
+  const handleYorumEkle = async (e) => {
     e.preventDefault();
     if (!yeniYorum.trim()) return;
     const aktifIsim = rol !== 'misafir' ? kullaniciAdi : 'Bezoeker';
-    const guncelYorumlar = [...secilenMakale.yorumlar, { isim: aktifIsim, metin: yeniYorum }];
-    setIcerikler(icerikler.map(item => item.id === secilenMakale.id ? { ...item, yorumlar: guncelYorumlar } : item));
-    setSecilenMakale(prev => ({ ...prev, yorumlar: guncelYorumlar }));
-    setYeniYorum('');
-    toonNotificatie("Reactie succesvol geplaatst! 💬");
+
+    try {
+      const response = await fetch(`${API_URL}/api/articles/${secilenMakale.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isim: aktifIsim, metin: yeniYorum }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        const yeniYorumObj = { isim: aktifIsim, metin: yeniYorum };
+        setIcerikler(prev => prev.map(item =>
+          item.id === secilenMakale.id ? { ...item, yorumlar: [...item.yorumlar, yeniYorumObj] } : item
+        ));
+        setSecilenMakale(prev => ({ ...prev, yorumlar: [...prev.yorumlar, yeniYorumObj] }));
+        setYeniYorum('');
+        toonNotificatie('Reactie succesvol geplaatst! 💬');
+      }
+    } catch (error) {
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
+    }
+  };
+
+  // ---------- Kullanıcı sil (admin panelinden) ----------
+  const kullaniciSil = async (id) => {
+    if (!confirm('Deze gebruiker definitief verwijderen?')) return;
+    try {
+      const response = await fetch(`${API_URL}/api/users/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (data.status === 'success') {
+        toonNotificatie('Gebruiker verwijderd! 🗑️', 'fout');
+        kullanicilariGetir();
+      } else {
+        toonNotificatie(data.detail || 'Verwijderen mislukt', 'fout');
+      }
+    } catch (error) {
+      toonNotificatie('Verbindingsfout met de server!', 'fout');
+    }
   };
 
   const totaalArtikelen = icerikler.length;
@@ -185,7 +278,7 @@ export default function App() {
 
   const filtrelenmisIcerikler = icerikler.filter(item => {
     const kategoriUyumlu = aktifKategori === 'alles' || item.kategori === aktifKategori;
-    const aramaUyumlu = item.baslik.toLowerCase().includes(aramaMetni.toLowerCase()) || item.ozet.toLowerCase().includes(aramaMetni.toLowerCase());
+    const aramaUyumlu = item.baslik.toLowerCase().includes(aramaMetni.toLowerCase()) || (item.ozet || '').toLowerCase().includes(aramaMetni.toLowerCase());
     const favoriUyumlu = !alleenFavorieten || favoriler.includes(item.id);
     return kategoriUyumlu && aramaUyumlu && favoriUyumlu;
   });
@@ -193,14 +286,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative">
       {notificatie && (
-        <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
+        <div className={`fixed top-20 right-6 z-60 px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
           {notificatie.type === 'succes' ? '✅' : '❌'} {notificatie.tekst}
         </div>
       )}
 
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-
           <button
             onClick={() => { setAktifKategori('alles'); setSecilenMakale(null); setAlleenFavorieten(false); }}
             className="flex items-center gap-3 group cursor-pointer border-none bg-transparent text-left"
@@ -248,23 +340,66 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         {rol === 'admin' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col shadow-sm">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Totaal Artikelen</span>
-              <span className="text-3xl font-black text-slate-800 mt-1">{totaalArtikelen} 📝</span>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col shadow-sm">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Top 3 Populaire Categorieën</span>
-              <div className="flex gap-2 mt-2">
-                {top3Categorieen.map((kat, i) => (
-                  <span key={kat} className="text-xs bg-emerald-50 border border-emerald-100 px-2 py-1 rounded text-emerald-600 font-bold capitalize">#{i + 1} {kat}</span>
-                ))}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col shadow-sm">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Totaal Artikelen</span>
+                <span className="text-3xl font-black text-slate-800 mt-1">{totaalArtikelen} 📝</span>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col shadow-sm">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Top 3 Populaire Categorieën</span>
+                <div className="flex gap-2 mt-2">
+                  {top3Categorieen.map((kat, i) => (
+                    <span key={kat} className="text-xs bg-emerald-50 border border-emerald-100 px-2 py-1 rounded text-emerald-600 font-bold capitalize">#{i + 1} {kat}</span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+
+            <div className="flex gap-2 mb-8 max-w-md mx-auto bg-white border border-slate-200 rounded-xl p-1">
+              <button
+                onClick={() => setAdminSekme('makaleler')}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold cursor-pointer transition ${adminSekme === 'makaleler' ? 'bg-emerald-500 text-white' : 'bg-transparent text-slate-500'}`}
+              >
+                📝 Makaleler
+              </button>
+              <button
+                onClick={() => setAdminSekme('kullanicilar')}
+                className={`flex-1 py-2 rounded-lg text-sm font-bold cursor-pointer transition ${adminSekme === 'kullanicilar' ? 'bg-emerald-500 text-white' : 'bg-transparent text-slate-500'}`}
+              >
+                👥 Kullanıcılar
+              </button>
+            </div>
+          </>
         )}
 
-        {!secilenMakale ? (
+        {rol === 'admin' && adminSekme === 'kullanicilar' ? (
+          <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">👥 Kayıtlı Kullanıcılar ({kullaniciListesi.length})</h3>
+            <div className="space-y-2">
+              {kullaniciListesi.map((k) => (
+                <div key={k.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+                  <div>
+                    <span className="font-bold text-slate-800">{k.username}</span>
+                    <span className="text-slate-400 text-sm ml-2">{k.email}</span>
+                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${k.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {k.role}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => kullaniciSil(k.id)}
+                    className="text-xs bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded hover:bg-red-600 hover:text-white transition cursor-pointer"
+                  >
+                    Sil
+                  </button>
+                </div>
+              ))}
+              {kullaniciListesi.length === 0 && (
+                <p className="text-slate-400 text-sm text-center py-6">Henüz kayıtlı kullanıcı yok.</p>
+              )}
+            </div>
+          </div>
+        ) : !secilenMakale ? (
           <>
             <div className="max-w-md mx-auto mb-8">
               <div className="relative">
@@ -395,14 +530,12 @@ export default function App() {
               </h2>
             </div>
             {(aktifModal === 'kullanici' || aktifModal === 'admin') && (
-                <form onSubmit={handleGirisSubmit} className="px-10 pb-8 space-y-6">
-                  {girisHata && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-2 rounded-lg text-center">
-                      ⚠️ {girisHata}
-                    </div>
-                  )}
-                  <input type="email" placeholder="E-mailadres" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
-                  ...
+              <form onSubmit={handleGirisSubmit} className="px-10 pb-8 space-y-6">
+                {girisHata && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-2 rounded-lg text-center">
+                    ⚠️ {girisHata}
+                  </div>
+                )}
                 <input type="email" placeholder="E-mailadres" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
                 <input type="password" placeholder="Wachtwoord" value={formSifre} onChange={(e) => setFormSifre(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
                 <button type="submit" className="w-full py-2.5 rounded-full font-bold text-white text-xs tracking-wider transition cursor-pointer bg-gradient-to-r from-emerald-400 to-teal-600 shadow-md uppercase">Inloggen</button>
