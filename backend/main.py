@@ -1,5 +1,6 @@
 import sqlite3
-from fastapi import FastAPI, Request, HTTPException
+import secrets
+from fastapi import FastAPI, Request, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -7,6 +8,27 @@ from typing import Optional
 
 app = FastAPI()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Aktif giriş yapmış kullanıcıların anahtarlarını (token) hafızada tutuyoruz.
+# NOT: Backend yeniden başlatılınca bu liste sıfırlanır, herkesin tekrar giriş yapması gerekir.
+aktif_oturumlar = {}
+
+def admin_yetkisi_gerekli(authorization: Optional[str] = Header(None)):
+    """Bu fonksiyon, admin'e özel bir endpoint'e istek gelince otomatik çalışır.
+    Geçerli ve admin'e ait bir anahtar yoksa isteği reddeder."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Giriş yapmanız gerekiyor")
+
+    token = authorization.replace("Bearer ", "")
+    kullanici = aktif_oturumlar.get(token)
+
+    if not kullanici:
+        raise HTTPException(status_code=401, detail="Oturum geçersiz, tekrar giriş yapın")
+
+    if kullanici["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Bu işlem için admin yetkisi gerekiyor")
+
+    return kullanici
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,7 +117,14 @@ async def login(user: UserLogin):
     conn.close()
 
     if user_data and pwd_context.verify(user.password, user_data["password"]):
-        return {"status": "success", "username": user_data["username"], "role": user_data["role"]}
+        token = secrets.token_hex(16)
+        aktif_oturumlar[token] = {"username": user_data["username"], "role": user_data["role"]}
+        return {
+            "status": "success",
+            "username": user_data["username"],
+            "role": user_data["role"],
+            "token": token,
+        }
     else:
         return {"status": "error", "detail": "E-posta veya şifre hatalı!"}
 
@@ -118,7 +147,7 @@ async def register(user: UserRegister):
 
 # ---------- KULLANICI YÖNETİMİ (Admin) ----------
 @app.get("/api/users")
-async def get_users():
+async def get_users(current_admin: dict = Depends(admin_yetkisi_gerekli)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT id, username, email, role FROM users")
@@ -127,7 +156,7 @@ async def get_users():
     return [dict(row) for row in rows]
 
 @app.delete("/api/users/{user_id}")
-async def delete_user(user_id: int):
+async def delete_user(user_id: int, current_admin: dict = Depends(admin_yetkisi_gerekli)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
@@ -154,7 +183,7 @@ async def get_articles():
     return articles
 
 @app.post("/api/articles")
-async def create_article(article: ArticleCreate):
+async def create_article(article: ArticleCreate, current_admin: dict = Depends(admin_yetkisi_gerekli)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
@@ -167,7 +196,7 @@ async def create_article(article: ArticleCreate):
     return {"status": "success", "id": new_id}
 
 @app.delete("/api/articles/{article_id}")
-async def delete_article(article_id: int):
+async def delete_article(article_id: int, current_admin: dict = Depends(admin_yetkisi_gerekli)):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM articles WHERE id = ?", (article_id,))
