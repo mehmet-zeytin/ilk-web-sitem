@@ -112,13 +112,17 @@ init_db()
 async def login(user: UserLogin):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT username, password, role FROM users WHERE email = ?", (user.email,))
+    cursor.execute("SELECT id, username, password, role FROM users WHERE email = ?", (user.email,))
     user_data = cursor.fetchone()
     conn.close()
 
     if user_data and pwd_context.verify(user.password, user_data["password"]):
         token = secrets.token_hex(16)
-        aktif_oturumlar[token] = {"username": user_data["username"], "role": user_data["role"]}
+        aktif_oturumlar[token] = {
+            "id": user_data["id"],
+            "username": user_data["username"],
+            "role": user_data["role"],
+        }
         return {
             "status": "success",
             "username": user_data["username"],
@@ -157,6 +161,10 @@ async def get_users(current_admin: dict = Depends(admin_yetkisi_gerekli)):
 
 @app.delete("/api/users/{user_id}")
 async def delete_user(user_id: int, current_admin: dict = Depends(admin_yetkisi_gerekli)):
+    # Admin kendi hesabını silemez
+    if user_id == current_admin["id"]:
+        raise HTTPException(status_code=400, detail="Kendi hesabınızı silemezsiniz!")
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))

@@ -18,6 +18,7 @@ export default function App() {
 
   const [rol, setRol] = useState('misafir');
   const [kullaniciAdi, setKullaniciAdi] = useState('');
+  const [token, setToken] = useState(null);
   const [aktifModal, setAktifModal] = useState(null);
   const [girisHata, setGirisHata] = useState('');
 
@@ -34,6 +35,9 @@ export default function App() {
 
   const [kullaniciListesi, setKullaniciListesi] = useState([]);
   const [adminSekme, setAdminSekme] = useState('makaleler'); // 'makaleler' | 'kullanicilar'
+
+  // Admin isteklerinde göndereceğimiz kimlik başlığı (Authorization header)
+  const yetkiBasligi = () => (token ? { Authorization: `Bearer ${token}` } : {});
 
   const toonNotificatie = (tekst, type = 'succes') => {
     setNotificatie({ tekst, type });
@@ -65,7 +69,13 @@ export default function App() {
   // ---------- Admin ise kullanıcı listesini çek ----------
   const kullanicilariGetir = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/users`);
+      const response = await fetch(`${API_URL}/api/users`, {
+        headers: { ...yetkiBasligi() },
+      });
+      if (response.status === 401 || response.status === 403) {
+        toonNotificatie('Oturumunuz geçersiz, tekrar giriş yapın!', 'fout');
+        return;
+      }
       const data = await response.json();
       setKullaniciListesi(data);
     } catch (error) {
@@ -75,10 +85,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (rol === 'admin') {
+    if (rol === 'admin' && token) {
       kullanicilariGetir();
     }
-  }, [rol]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rol, token]);
 
   const formuTemizle = () => {
     setFormEmail('');
@@ -105,6 +116,7 @@ export default function App() {
         toonNotificatie('Welkom! 👋', 'succes');
         setKullaniciAdi(data.username || 'Gebruiker');
         setRol(data.role === 'admin' ? 'admin' : 'kullanici');
+        setToken(data.token || null);
         setAktifModal(null);
         formuTemizle();
       } else {
@@ -114,6 +126,14 @@ export default function App() {
       console.error('Fetch hatası:', error);
       setGirisHata('Server niet bereikbaar!');
     }
+  };
+
+  // ---------- Çıkış ----------
+  const handleCikis = () => {
+    setRol('misafir');
+    setKullaniciAdi('');
+    setToken(null);
+    setKullaniciListesi([]);
   };
 
   // ---------- Kayıt ----------
@@ -147,7 +167,7 @@ export default function App() {
     }
   };
 
-  // ---------- Makale ekle (backend'e kaydeder) ----------
+  // ---------- Makale ekle (backend'e kaydeder, admin anahtarı gerekir) ----------
   const handleMakaleEkle = async (e) => {
     e.preventDefault();
     if (!yeniBaslik.trim() || !yeniDetay.trim()) return;
@@ -155,7 +175,7 @@ export default function App() {
     try {
       const response = await fetch(`${API_URL}/api/articles`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...yetkiBasligi() },
         body: JSON.stringify({
           kategori: yeniKategori,
           baslik: yeniBaslik,
@@ -164,6 +184,10 @@ export default function App() {
           sure: yeniSure,
         }),
       });
+      if (response.status === 401 || response.status === 403) {
+        toonNotificatie('Oturumunuz geçersiz, tekrar giriş yapın!', 'fout');
+        return;
+      }
       const data = await response.json();
       if (data.status === 'success') {
         setYeniBaslik('');
@@ -179,15 +203,22 @@ export default function App() {
     }
   };
 
-  // ---------- Makale sil (backend'den siler) ----------
+  // ---------- Makale sil (backend'den siler, admin anahtarı gerekir) ----------
   const makaleSil = async (id) => {
     if (!confirm('Weet u zeker dat u dit artikel wilt verwijderen?')) return;
     try {
-      const response = await fetch(`${API_URL}/api/articles/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/articles/${id}`, {
+        method: 'DELETE',
+        headers: { ...yetkiBasligi() },
+      });
+      if (response.status === 401 || response.status === 403) {
+        toonNotificatie('Oturumunuz geçersiz, tekrar giriş yapın!', 'fout');
+        return;
+      }
       const data = await response.json();
       if (data.status === 'success') {
         setSecilenMakale(null);
-        toonNotificatie('Artikel succesvol verwijderd! 🗑️', 'succes');
+        toonNotificatie('Artikel succesvol verwijderd! 🗑️', 'fout');
         makaleleriGetir();
       }
     } catch (error) {
@@ -195,7 +226,7 @@ export default function App() {
     }
   };
 
-  // ---------- Beğeni (backend'e yazar) ----------
+  // ---------- Beğeni (herkes yapabilir, anahtar gerekmez) ----------
   const handleBegeni = async (id, e) => {
     e.stopPropagation();
     try {
@@ -224,7 +255,7 @@ export default function App() {
     }
   };
 
-  // ---------- Yorum ekle (backend'e yazar) ----------
+  // ---------- Yorum ekle (herkes yapabilir, anahtar gerekmez) ----------
   const handleYorumEkle = async (e) => {
     e.preventDefault();
     if (!yeniYorum.trim()) return;
@@ -251,14 +282,21 @@ export default function App() {
     }
   };
 
-  // ---------- Kullanıcı sil (admin panelinden) ----------
+  // ---------- Kullanıcı sil (admin panelinden, admin anahtarı gerekir) ----------
   const kullaniciSil = async (id) => {
     if (!confirm('Deze gebruiker definitief verwijderen?')) return;
     try {
-      const response = await fetch(`${API_URL}/api/users/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { ...yetkiBasligi() },
+      });
+      if (response.status === 401 || response.status === 403) {
+        toonNotificatie('Oturumunuz geçersiz, tekrar giriş yapın!', 'fout');
+        return;
+      }
       const data = await response.json();
       if (data.status === 'success') {
-        toonNotificatie('Gebruiker verwijderd! 🗑️', 'succes');
+        toonNotificatie('Gebruiker verwijderd! 🗑️', 'fout');
         kullanicilariGetir();
       } else {
         toonNotificatie(data.detail || 'Verwijderen mislukt', 'fout');
@@ -286,13 +324,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative">
       {notificatie && (
-        <div className={`fixed top-20 right-6 z-[60] px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
+        <div className={`fixed top-20 left-4 right-4 sm:left-auto sm:right-6 z-[60] px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
           {notificatie.type === 'succes' ? '✅' : '❌'} {notificatie.tekst}
         </div>
       )}
 
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="w-full px-6 h-16 flex items-center justify-between">
           <button
             onClick={() => { setAktifKategori('alles'); setSecilenMakale(null); setAlleenFavorieten(false); }}
             className="flex items-center gap-3 group cursor-pointer border-none bg-transparent text-left"
@@ -301,19 +339,20 @@ export default function App() {
             <div><span className="block text-lg font-black text-slate-900 tracking-tight">WERELD & LEVEN</span></div>
           </button>
 
-          <nav className="flex items-center gap-6 text-sm text-slate-600">
+          <nav className="flex items-center gap-2 sm:gap-6 text-xs sm:text-sm text-slate-600 flex-nowrap">
             <span
               onClick={() => { setSecilenMakale(null); setAlleenFavorieten(false); }}
-              className="hover:text-slate-900 cursor-pointer transition font-medium"
+              className="hidden sm:inline hover:text-slate-900 cursor-pointer transition font-medium"
             >
               Ontdek
             </span>
 
             <button
               onClick={() => { setAlleenFavorieten(!alleenFavorieten); setSecilenMakale(null); }}
-              className={`bg-transparent border-none font-medium cursor-pointer transition flex items-center gap-1.5 ${alleenFavorieten ? 'text-emerald-600 font-bold' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`bg-transparent border-none font-medium cursor-pointer transition flex items-center gap-1 sm:gap-1.5 shrink-0 ${alleenFavorieten ? 'text-emerald-600 font-bold' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              <span>📑 Bladwijzers</span>
+              <span className="hidden sm:inline">📑 Bladwijzers</span>
+              <span className="sm:hidden text-base">📑</span>
               <span className="bg-slate-200 text-xs px-1.5 py-0.5 rounded-md text-slate-700 font-bold">
                 {favoriler?.length || 0}
               </span>
@@ -322,23 +361,25 @@ export default function App() {
             {rol === 'misafir' ? (
               <button
                 onClick={() => setAktifModal('kullanici')}
-                className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer transition shadow-sm"
+                className="px-3 sm:px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer transition shadow-sm shrink-0"
               >
                 Inloggen
               </button>
             ) : (
               <button
-                onClick={() => { setRol('misafir'); setKullaniciAdi(''); }}
-                className={`px-3 py-1.5 rounded-lg font-medium border cursor-pointer transition ${rol === 'admin' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
+                onClick={handleCikis}
+                className={`px-2 sm:px-3 py-1.5 rounded-lg font-medium border cursor-pointer transition flex items-center gap-1 max-w-[160px] sm:max-w-none shrink-0 ${rol === 'admin' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
               >
-                {rol === 'admin' ? `🔴 Admin: ${kullaniciAdi} (Log uit)` : `👤 ${kullaniciAdi} (Log uit)`}
+                <span className="shrink-0">{rol === 'admin' ? '🔴' : '👤'}</span>
+                <span className="truncate">{kullaniciAdi}</span>
+                <span className="hidden sm:inline shrink-0">(Log uit)</span>
               </button>
             )}
           </nav>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-12">
+      <main className="w-full px-6 py-12">
         {rol === 'admin' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -378,17 +419,17 @@ export default function App() {
             <h3 className="text-lg font-bold text-slate-800 mb-4">👥 Kayıtlı Kullanıcılar ({kullaniciListesi.length})</h3>
             <div className="space-y-2">
               {kullaniciListesi.map((k) => (
-                <div key={k.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-                  <div>
-                    <span className="font-bold text-slate-800">{k.username}</span>
-                    <span className="text-slate-400 text-sm ml-2">{k.email}</span>
-                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${k.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                <div key={k.id} className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <span className="font-bold text-slate-800 break-all">{k.username}</span>
+                    <span className="text-slate-400 text-sm break-all">{k.email}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${k.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                       {k.role}
                     </span>
                   </div>
                   <button
                     onClick={() => kullaniciSil(k.id)}
-                    className="text-xs bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded hover:bg-red-600 hover:text-white transition cursor-pointer"
+                    className="text-xs bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded hover:bg-red-600 hover:text-white transition cursor-pointer shrink-0"
                   >
                     Sil
                   </button>
@@ -408,7 +449,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 mb-12 w-full max-w-5xl mx-auto px-2">
+            <div className="flex flex-wrap justify-center gap-2 mb-12 w-full px-2">
               {KATEGORILER.map((kat) => (
                 <button key={kat} onClick={() => setAktifKategori(kat)} className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition cursor-pointer border ${aktifKategori === kat ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
                   {kat === 'alles' ? 'Alle Artikelen 📑' : kat}
@@ -428,8 +469,8 @@ export default function App() {
                   </div>
                   <input type="text" placeholder="Korte Samenvatting (Optioneel)" value={yeniOzet} onChange={(e) => setYeniOzet(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-emerald-500" />
                   <textarea placeholder="Gedetailleerde Artikel Inhoud..." value={yeniDetay} onChange={(e) => setYeniDetay(e.target.value)} rows="3" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-emerald-500" required></textarea>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex flex-wrap gap-3 justify-between items-center">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>⏱️ Leestijd:</span>
                       {['1 min', '2 min', '3 min'].map(sure => (<button type="button" key={sure} onClick={() => setYeniSure(sure)} className={`px-2 py-1 rounded ${yeniSure === sure ? 'bg-emerald-500 text-white font-bold' : 'bg-white border border-slate-200'}`}>{sure}</button>))}
                     </div>
@@ -439,7 +480,7 @@ export default function App() {
               </div>
             )}
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
               {filtrelenmisIcerikler.map((item) => (
                 <article
                   key={item.id}
@@ -489,7 +530,7 @@ export default function App() {
         ) : (
           <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative">
             <button onClick={(e) => toggleFavori(secilenMakale.id, e)} className="absolute top-8 right-8 bg-transparent border-none cursor-pointer text-xs font-bold text-slate-400 hover:text-emerald-500 transition">{favoriler.includes(secilenMakale.id) ? '📑 In Bladwijzers' : '🔖 Voeg toe'}</button>
-            <div className="flex justify-between items-center mb-6 pt-4">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6 pt-4">
               <button onClick={() => setSecilenMakale(null)} className="text-sm font-bold text-emerald-500 bg-transparent border-none cursor-pointer">← Terug</button>
               <div className="flex items-center gap-3">
                 <button onClick={(e) => handleBegeni(secilenMakale.id, e)} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition cursor-pointer"><span>❤️ Like</span><span>{secilenMakale.begeni}</span></button>
@@ -530,7 +571,7 @@ export default function App() {
               </h2>
             </div>
             {(aktifModal === 'kullanici' || aktifModal === 'admin') && (
-              <form onSubmit={handleGirisSubmit} className="px-10 pb-8 space-y-6">
+              <form onSubmit={handleGirisSubmit} className="px-6 sm:px-10 pb-8 space-y-6">
                 {girisHata && (
                   <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold px-3 py-2 rounded-lg text-center">
                     ⚠️ {girisHata}
@@ -549,7 +590,7 @@ export default function App() {
               </form>
             )}
             {(aktifModal === 'kullanici_kayit' || aktifModal === 'admin_kayit') && (
-              <form onSubmit={handleKayitSubmit} className="px-10 pb-8 space-y-6">
+              <form onSubmit={handleKayitSubmit} className="px-6 sm:px-10 pb-8 space-y-6">
                 <input type="text" placeholder="Gebruikersnaam" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
                 <input type="email" placeholder="E-mailadres" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
                 <input type="password" placeholder="Wachtwoord" value={formSifre} onChange={(e) => setFormSifre(e.target.value)} className="w-full bg-transparent border-b border-slate-200 py-2 text-sm focus:outline-none focus:border-emerald-500 transition" required />
@@ -564,7 +605,7 @@ export default function App() {
       )}
 
       <footer className="border-t border-slate-200 bg-white py-8 shadow-inner mt-20">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+        <div className="w-full px-6 flex flex-col md:flex-row items-center justify-between text-xs text-slate-400 gap-4">
           <div>
             <p className="text-slate-500 font-bold">📞 Contact: +90 (555) 123 45 67</p>
             <p>©️ 2026 Wereld & Leven Portaal. Alle rechten voorbehouden.</p>
