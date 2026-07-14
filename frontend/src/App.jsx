@@ -187,7 +187,7 @@ export default function App() {
       const data = await response.json();
       if (data.status === 'success') {
         setSecilenMakale(null);
-        toonNotificatie('Artikel succesvol verwijderd! 🗑️', 'fout');
+        toonNotificatie('Artikel succesvol verwijderd! 🗑️', 'succes');
         makaleleriGetir();
       }
     } catch (error) {
@@ -258,7 +258,7 @@ export default function App() {
       const response = await fetch(`${API_URL}/api/users/${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.status === 'success') {
-        toonNotificatie('Gebruiker verwijderd! 🗑️', 'fout');
+        toonNotificatie('Gebruiker verwijderd! 🗑️', 'succes');
         kullanicilariGetir();
       } else {
         toonNotificatie(data.detail || 'Verwijderen mislukt', 'fout');
@@ -286,7 +286,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans relative">
       {notificatie && (
-        <div className={`fixed top-20 right-6 z-60 px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
+        <div className={`fixed top-20 right-6 z-[60] px-5 py-3 rounded-xl font-bold shadow-2xl border transition-all duration-300 transform translate-y-0 text-sm flex items-center gap-2 ${notificatie.type === 'succes' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-red-500 text-white border-red-600'}`}>
           {notificatie.type === 'succes' ? '✅' : '❌'} {notificatie.tekst}
         </div>
       )}
